@@ -1,0 +1,24 @@
+{
+  "name": "health-care",
+  "version": "1.0.0",
+  "description": "A responsive student project prototype for sharing general first-aid information. It includes an account screen, an AI health guide chat demo, and a health profile with a BMI calculation.",
+  "main": "auth-regression-test.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Pranahit-Kumar-Malipat/Health-Care.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Pranahit-Kumar-Malipat/Health-Care/issues"
+  },
+  "homepage": "https://github.com/Pranahit-Kumar-Malipat/Health-Care#readme",
+  "devDependencies": {
+    "playwright": "^1.64.0"
+  }
+}
