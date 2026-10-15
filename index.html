@@ -55,6 +55,9 @@
       <div class="nav-label">YOUR SPACE</div>
       <nav class="nav-links">
         <button class="nav-item active" data-page="chat" aria-current="page"><span class="nav-icon">✳</span><span>AI health guide</span></button>
+        <button class="nav-item" data-page="appointments"><span class="nav-icon">▣</span><span>Appointments</span></button>
+        <button class="nav-item" data-page="availability"><span class="nav-icon">◷</span><span>Find availability</span></button>
+        <button class="nav-item" data-page="documents"><span class="nav-icon">▤</span><span>Patient documents</span></button>
         <button class="nav-item" data-page="profile"><span class="nav-icon">◉</span><span>My health profile</span></button>
       </nav>
       <div class="sidebar-spacer"></div>
@@ -112,6 +115,14 @@
                       <option value="Follow-up visit">Follow-up visit</option>
                       <option value="Wellness check">Wellness check</option>
                       <option value="Nutrition review">Nutrition review</option>
+                      <option value="Emergency care">Emergency care</option>
+                      <option value="Pediatrics">Pediatrics</option>
+                      <option value="Women’s health">Women’s health</option>
+                      <option value="Cardiology">Cardiology</option>
+                      <option value="Orthopedics">Orthopedics</option>
+                      <option value="Dental care">Dental care</option>
+                      <option value="Diagnostics and lab tests">Diagnostics and lab tests</option>
+                      <option value="Pharmacy consultation">Pharmacy consultation</option>
                     </select>
                   </label>
 
@@ -143,6 +154,12 @@
                   </label>
 
                   <label class="booking-field full-width">
+                    <span>Hospital or clinic</span>
+                    <input name="hospital" type="text" maxlength="120" placeholder="Choose a nearby facility in Google Maps">
+                    <button class="maps-button" id="find-hospitals" type="button"><span aria-hidden="true">⌖</span> Find nearby hospitals</button>
+                  </label>
+
+                  <label class="booking-field full-width">
                     <span>Notes</span>
                     <textarea name="notes" rows="2" placeholder="Tell us what you’d like to discuss"></textarea>
                   </label>
@@ -166,6 +183,58 @@
             <div class="rail-card prompts-card"><div class="card-heading"><span class="card-icon prompt-icon">✳</span><span>NOT SURE WHERE TO START?</span></div><h3>Try asking</h3><div class="prompt-list"><button class="prompt-chip" data-prompt="I have a headache that started this morning. What should I watch for?">“I have a headache…” <span>↗</span></button><button class="prompt-chip" data-prompt="I have a small kitchen burn. What first aid should I do?">“I got a small burn…” <span>↗</span></button><button class="prompt-chip" data-prompt="I have had a cough for a few days. What symptoms mean I should seek care?">“I’ve had a cough…” <span>↗</span></button></div><p class="prompt-foot">Please don’t include names, phone numbers, or other personal details.</p></div>
             <div class="rail-tip"><span class="tip-sparkle">✳</span><p><strong>A small reminder</strong><br>Online guidance can’t replace an in-person medical check when you’re worried.</p></div>
           </aside>
+        </div>
+      </section>
+      <section class="page appointments-page" id="appointments-page" aria-labelledby="appointments-title" hidden>
+        <div class="appointments-content">
+          <div class="eyebrow"><span class="eyebrow-line"></span> YOUR SPACE</div>
+          <h1 id="appointments-title">Your appointments<br><em>at a glance.</em></h1>
+          <p class="welcome-copy">See your upcoming visits and keep a record of appointments you’ve already attended.</p>
+          <div class="appointments-summary" aria-live="polite">
+            <span><strong id="appointments-upcoming-count">0</strong> upcoming</span>
+            <span><strong id="appointments-history-count">0</strong> in history</span>
+          </div>
+          <div class="appointment-sections">
+            <section class="appointment-history-card" aria-labelledby="upcoming-title">
+              <div class="section-head"><div><span class="section-kicker">NEXT UP</span><h2 id="upcoming-title">Present booked appointments</h2></div><span class="section-index">01</span></div>
+              <ul id="appointments-upcoming-list" class="appointment-list"></ul>
+            </section>
+            <section class="appointment-history-card" aria-labelledby="history-title">
+              <div class="section-head"><div><span class="section-kicker">YOUR RECORD</span><h2 id="history-title">Appointment history</h2></div><span class="section-index">02</span></div>
+              <ul id="appointments-history-list" class="appointment-list"></ul>
+            </section>
+          </div>
+          <button class="create-account-button appointments-cta" type="button" data-page="chat">Book another appointment <span>→</span></button>
+          <div class="reminder-panel">
+            <div><strong>Appointment reminders</strong><p id="reminder-status">Get a browser notification before your next visit.</p></div>
+            <button class="clear-button" id="enable-reminders" type="button">Enable reminders</button>
+          </div>
+        </div>
+      </section>
+      <section class="page availability-page" id="availability-page" aria-labelledby="availability-title" hidden>
+        <div class="availability-content">
+          <div class="eyebrow"><span class="eyebrow-line"></span> YOUR SPACE</div>
+          <h1 id="availability-title">Find a time that<br><em>works for you.</em></h1>
+          <p class="welcome-copy">Choose a service and hospital to see available demo appointment slots. Selecting a slot will prefill the booking form.</p>
+          <div class="availability-controls">
+            <label class="booking-field"><span>Service</span><select id="availability-service"><option>General consultation</option><option>Pediatrics</option><option>Women’s health</option><option>Cardiology</option><option>Diagnostics and lab tests</option><option>Dental care</option></select></label>
+            <label class="booking-field"><span>Hospital or clinic</span><input id="availability-hospital" value="City Care Hospital" maxlength="120"></label>
+          </div>
+          <div class="availability-list" id="availability-list"></div>
+        </div>
+      </section>
+      <section class="page documents-page" id="documents-page" aria-labelledby="documents-title" hidden>
+        <div class="documents-content">
+          <div class="eyebrow"><span class="eyebrow-line"></span> YOUR SPACE</div>
+          <h1 id="documents-title">Your patient<br><em>documents.</em></h1>
+          <p class="welcome-copy">Keep prescriptions, lab reports, and referral letters together. Files stay in this browser in this prototype.</p>
+          <form class="documents-upload" id="documents-form">
+            <label class="booking-field"><span>Add a document</span><input id="document-file" type="file" accept=".pdf,.png,.jpg,.jpeg,.txt,.doc,.docx" required></label>
+            <label class="booking-field"><span>Document type</span><select id="document-type"><option>Prescription</option><option>Lab report</option><option>Referral letter</option><option>Discharge summary</option><option>Insurance document</option><option>Other</option></select></label>
+            <button class="create-account-button" type="submit">Save document <span>→</span></button>
+            <p class="booking-result" id="document-result" aria-live="polite"></p>
+          </form>
+          <ul class="document-list" id="document-list" aria-live="polite"></ul>
         </div>
       </section>
       <section class="page account-page" id="account-page" aria-labelledby="account-title" hidden>

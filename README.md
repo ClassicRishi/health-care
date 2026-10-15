@@ -12,6 +12,8 @@ A responsive student project prototype for sharing general first-aid information
 - BMI calculation based on height and weight
 - Responsive layout for phones, tablets, and computers
 - General safety messages for some urgent symptom phrases
+- Hospital service filters, mock appointment availability, and browser appointment reminders
+- Patient document upload and download stored locally in the browser
 - Off-white, deep navy, and warm accent colour palette
 
 ## Run the project
@@ -32,6 +34,8 @@ No API key or installation is needed for this demo.
 ## Demo account limitations
 
 The account flow runs only in the browser. Demo account details and passwords are held temporarily in page memory and are lost when the page is refreshed or closed. This is **not secure authentication**. Do not enter real personal, medical, or password information.
+
+Appointments are demo records stored in browser local storage. Reminder notifications require the patient to grant browser notification permission and the page to remain available; they are not SMS, email, or server-side reminders. Patient documents are stored as browser-local demo data and must not contain real medical records.
 
 ## AI integration
 

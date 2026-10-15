@@ -11,6 +11,7 @@
   const ACCOUNTS_KEY = 'firstAidAssistantAccounts';
   const ACTIVE_ACCOUNT_KEY = 'firstAidAssistantActiveUser';
   const APPOINTMENTS_KEY = 'firstAidAssistantAppointments';
+  const DOCUMENTS_KEY = 'firstAidAssistantDocuments';
 
   function readAccounts() {
     try {
@@ -90,6 +91,9 @@
     appShell.hidden = false;
     document.getElementById('page-title').textContent = 'AI health guide';
     document.getElementById('chat-page').hidden = false;
+    document.getElementById('appointments-page').hidden = true;
+    document.getElementById('availability-page').hidden = true;
+    document.getElementById('documents-page').hidden = true;
     document.getElementById('profile-page').hidden = true;
     document.querySelectorAll('.nav-item').forEach((item) => {
       const active = item.dataset.page === 'chat';
@@ -181,7 +185,13 @@
   document.querySelectorAll('[data-page]').forEach((button) => button.addEventListener('click', () => {
     if (button.dataset.page === 'account') { setAuthMode('signup'); showGate(); return; }
     const showProfile = button.dataset.page === 'profile';
-    document.getElementById('chat-page').hidden = showProfile;
+    const showAppointments = button.dataset.page === 'appointments';
+    const showAvailability = button.dataset.page === 'availability';
+    const showDocuments = button.dataset.page === 'documents';
+    document.getElementById('chat-page').hidden = showProfile || showAppointments || showAvailability || showDocuments;
+    document.getElementById('appointments-page').hidden = !showAppointments;
+    document.getElementById('availability-page').hidden = !showAvailability;
+    document.getElementById('documents-page').hidden = !showDocuments;
     document.getElementById('profile-page').hidden = !showProfile;
     document.querySelectorAll('.nav-item').forEach((item) => {
       const active = item.dataset.page === button.dataset.page;
@@ -189,7 +199,10 @@
       if (active) item.setAttribute('aria-current', 'page');
       else item.removeAttribute('aria-current');
     });
-    document.getElementById('page-title').textContent = showProfile ? 'My health profile' : 'AI health guide';
+    document.getElementById('page-title').textContent = showProfile ? 'My health profile' : showAppointments ? 'Appointments' : showAvailability ? 'Find availability' : showDocuments ? 'Patient documents' : 'AI health guide';
+    if (showAppointments) renderAppointments();
+    if (showAvailability) renderAvailability();
+    if (showDocuments) renderDocuments();
   }));
 
   function bootstrapAuthState() {
@@ -209,26 +222,159 @@
   const appointmentList = document.getElementById('appointment-list');
   const appointmentBadge = document.getElementById('booking-badge');
   const bookingResult = document.getElementById('booking-result');
+  const appointmentsUpcomingList = document.getElementById('appointments-upcoming-list');
+  const appointmentsHistoryList = document.getElementById('appointments-history-list');
+  const availabilityList = document.getElementById('availability-list');
+  const documentsForm = document.getElementById('documents-form');
+  const documentList = document.getElementById('document-list');
+
+  function readDocuments() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(DOCUMENTS_KEY) || '[]');
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      return [];
+    }
+  }
+
+  function writeDocuments(documents) {
+    localStorage.setItem(DOCUMENTS_KEY, JSON.stringify(documents));
+  }
+
+  function getCurrentAppointments() {
+    const email = activeAccount?.email;
+    return readAppointments().filter((booking) => !booking.patientEmail || booking.patientEmail === email);
+  }
+
+  function isPastAppointment(booking) {
+    const today = new Date();
+    const appointmentDate = new Date(`${booking.date}T${booking.time || '23:59'}:00`);
+    return !Number.isNaN(appointmentDate.getTime()) && appointmentDate < today;
+  }
+
+  function formatAppointmentDate(booking) {
+    const appointmentDate = new Date(`${booking.date}T00:00:00`);
+    if (Number.isNaN(appointmentDate.getTime())) return `${booking.date} · ${booking.time}`;
+    return `${appointmentDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} · ${booking.time}`;
+  }
+
+  function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, (character) => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#039;'
+    }[character]));
+  }
+
+  function appointmentMarkup(booking) {
+    return `
+      <li class="appointment-item">
+        <div class="appointment-time">${escapeHtml(formatAppointmentDate(booking))}</div>
+        <div class="appointment-service">${escapeHtml(booking.service)}</div>
+        <div class="appointment-doctor">${escapeHtml(booking.doctor)}</div>
+        ${booking.hospital ? `<div class="appointment-hospital">⌖ ${escapeHtml(booking.hospital)}</div>` : ''}
+        ${booking.notes ? `<div class="appointment-notes">${escapeHtml(booking.notes)}</div>` : ''}
+      </li>
+    `;
+  }
+
+  function renderAppointmentSection(list, bookings, emptyMessage) {
+    if (!list) return;
+    list.innerHTML = bookings.length ? bookings.map(appointmentMarkup).join('') : `<li class="appointment-empty">${emptyMessage}</li>`;
+  }
 
   function renderAppointments() {
-    const appointments = readAppointments();
-    appointmentBadge.textContent = `${appointments.length} upcoming`;
+    const appointments = getCurrentAppointments();
+    const upcoming = appointments.filter((booking) => !isPastAppointment(booking));
+    const history = appointments.filter(isPastAppointment);
+    appointmentBadge.textContent = `${upcoming.length} upcoming`;
 
-    if (!appointments.length) {
-      appointmentList.innerHTML = '<li class="appointment-empty">No upcoming visits yet.</li>';
+    renderAppointmentSection(appointmentList, upcoming, 'No upcoming visits yet.');
+    renderAppointmentSection(appointmentsUpcomingList, upcoming, 'No present booked appointments.');
+    renderAppointmentSection(appointmentsHistoryList, history, 'No appointment history yet.');
+    document.getElementById('appointments-upcoming-count').textContent = upcoming.length;
+    document.getElementById('appointments-history-count').textContent = history.length;
+    updateReminderStatus(upcoming);
+  }
+
+  function getAvailabilitySlots() {
+    const service = document.getElementById('availability-service').value;
+    const hospital = document.getElementById('availability-hospital').value.trim() || 'City Care Hospital';
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return [
+      { date: tomorrow.toISOString().slice(0, 10), time: '09:00', doctor: 'Dr. Nisha Rao', service, hospital },
+      { date: tomorrow.toISOString().slice(0, 10), time: '14:00', doctor: 'Dr. Daniel Lee', service, hospital },
+      { date: new Date(tomorrow.getTime() + 86400000).toISOString().slice(0, 10), time: '10:30', doctor: 'Dr. Priya Shah', service, hospital }
+    ];
+  }
+
+  function renderAvailability() {
+    availabilityList.innerHTML = getAvailabilitySlots().map((slot) => `
+      <article class="availability-slot">
+        <div><strong>${escapeHtml(formatAppointmentDate(slot))}</strong><span>${escapeHtml(slot.doctor)} · ${escapeHtml(slot.hospital)}</span></div>
+        <button class="clear-button select-slot" type="button" data-date="${slot.date}" data-time="${slot.time}" data-service="${escapeHtml(slot.service)}" data-doctor="${escapeHtml(slot.doctor)}" data-hospital="${escapeHtml(slot.hospital)}">Select slot</button>
+      </article>
+    `).join('');
+    availabilityList.querySelectorAll('.select-slot').forEach((button) => button.addEventListener('click', () => {
+      document.querySelector('#appointment-form [name="service"]').value = button.dataset.service;
+      document.querySelector('#appointment-form [name="doctor"]').value = button.dataset.doctor;
+      document.querySelector('#appointment-form [name="date"]').value = button.dataset.date;
+      document.querySelector('#appointment-form [name="time"]').value = button.dataset.time;
+      document.querySelector('#appointment-form [name="hospital"]').value = button.dataset.hospital;
+      document.querySelector('[data-page="chat"]').click();
+      document.getElementById('booking-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }));
+  }
+
+  function renderDocuments() {
+    const documents = readDocuments().filter((document) => document.patientEmail === activeAccount?.email);
+    documentList.innerHTML = documents.length ? documents.map((document) => `
+      <li class="document-item">
+        <div><strong>${escapeHtml(document.name)}</strong><span>${escapeHtml(document.type)} · ${escapeHtml(document.size)}</span></div>
+        <a href="${document.dataUrl}" download="${escapeHtml(document.name)}">Download</a>
+      </li>
+    `).join('') : '<li class="appointment-empty">No patient documents saved yet.</li>';
+  }
+
+  function updateReminderStatus(upcoming) {
+    const status = document.getElementById('reminder-status');
+    const enable = document.getElementById('enable-reminders');
+    if (!status || !enable) return;
+    if (!('Notification' in window)) {
+      status.textContent = 'Browser notifications are not supported here.';
+      enable.disabled = true;
       return;
     }
+    status.textContent = Notification.permission === 'granted' ? (upcoming.length ? 'Reminders are enabled for your upcoming visits.' : 'Reminders are enabled. Book a visit to receive one.') : 'Get a browser notification before your next visit.';
+    enable.textContent = Notification.permission === 'granted' ? 'Reminders enabled' : 'Enable reminders';
+    enable.disabled = Notification.permission === 'granted';
+  }
 
-    appointmentList.innerHTML = appointments
-      .map((booking) => `
-        <li class="appointment-item">
-          <div class="appointment-time">${booking.date} · ${booking.time}</div>
-          <div class="appointment-service">${booking.service}</div>
-          <div class="appointment-doctor">${booking.doctor}</div>
-          ${booking.notes ? `<div class="appointment-notes">${booking.notes}</div>` : ''}
-        </li>
-      `)
-      .join('');
+  async function enableReminders() {
+    if (!('Notification' in window)) return;
+    const permission = await Notification.requestPermission();
+    updateReminderStatus(getCurrentAppointments().filter((booking) => !isPastAppointment(booking)));
+    if (permission === 'granted') checkAppointmentReminders();
+  }
+
+  function checkAppointmentReminders() {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    const now = Date.now();
+    const appointments = readAppointments();
+    let changed = false;
+    appointments.forEach((booking) => {
+      if (booking.patientEmail !== activeAccount?.email || booking.reminderSent) return;
+      const appointmentTime = new Date(`${booking.date}T${booking.time}:00`).getTime();
+      if (appointmentTime > now && appointmentTime - now <= 24 * 60 * 60 * 1000) {
+        new Notification('Appointment reminder', { body: `${booking.service} with ${booking.doctor} at ${booking.time} on ${booking.date}.` });
+        booking.reminderSent = true;
+        changed = true;
+      }
+    });
+    if (changed) writeAppointments(appointments);
   }
 
   appointmentForm?.addEventListener('submit', (event) => {
@@ -238,6 +384,7 @@
     const doctor = String(formData.get('doctor') || '').trim();
     const date = String(formData.get('date') || '').trim();
     const time = String(formData.get('time') || '').trim();
+    const hospital = String(formData.get('hospital') || '').trim();
     const notes = String(formData.get('notes') || '').trim();
 
     if (!service || !doctor || !date || !time) {
@@ -260,12 +407,16 @@
       doctor,
       date,
       time,
+      hospital,
       notes,
-      patientName: activeAccount?.name || 'Patient'
+      patientName: activeAccount?.name || 'Patient',
+      patientEmail: activeAccount?.email || '',
+      reminderSent: false
     };
 
-    const nextAppointments = [booking, ...readAppointments()].slice(0, 5);
-    writeAppointments(nextAppointments);
+    const otherAppointments = readAppointments().filter((item) => item.patientEmail && item.patientEmail !== booking.patientEmail);
+    const nextAppointments = [booking, ...getCurrentAppointments()].slice(0, 5);
+    writeAppointments([...otherAppointments, ...nextAppointments]);
     appointmentForm.reset();
     bookingResult.textContent = `Booked ${service} with ${doctor} on ${date} at ${time}.`;
     bookingResult.classList.remove('error');
@@ -279,8 +430,44 @@
     bookingResult.classList.remove('error');
   });
 
+  document.getElementById('find-hospitals')?.addEventListener('click', () => {
+    const location = String(appointmentForm.elements.hospital.value || '').trim();
+    const query = location ? `hospitals near ${location}` : 'hospitals near me';
+    window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`, '_blank', 'noopener,noreferrer');
+  });
+
+  document.getElementById('enable-reminders')?.addEventListener('click', enableReminders);
+  document.getElementById('availability-service')?.addEventListener('change', renderAvailability);
+  document.getElementById('availability-hospital')?.addEventListener('input', renderAvailability);
+
+  documentsForm?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const file = document.getElementById('document-file').files[0];
+    const result = document.getElementById('document-result');
+    if (!file || file.size > 5 * 1024 * 1024) {
+      result.textContent = 'Choose a document smaller than 5 MB.';
+      result.classList.add('error');
+      return;
+    }
+    const reader = new FileReader();
+    reader.addEventListener('load', () => {
+      const documents = readDocuments().filter((document) => document.patientEmail !== activeAccount?.email);
+      documents.unshift({ id: `${Date.now()}`, name: file.name, type: document.getElementById('document-type').value, size: `${Math.ceil(file.size / 1024)} KB`, dataUrl: reader.result, patientEmail: activeAccount?.email || '' });
+      writeDocuments(documents.slice(0, 20));
+      documentsForm.reset();
+      result.textContent = 'Document saved in this browser.';
+      result.classList.remove('error');
+      renderDocuments();
+    });
+    reader.readAsDataURL(file);
+  });
+
   bootstrapAuthState();
   renderAppointments();
+  renderAvailability();
+  renderDocuments();
+  window.setInterval(checkAppointmentReminders, 60000);
+  checkAppointmentReminders();
 
   document.querySelectorAll('.prompt-chip').forEach((button) => button.addEventListener('click', () => {
     prompt.value = button.dataset.prompt;
